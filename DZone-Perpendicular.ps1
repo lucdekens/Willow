@@ -10,7 +10,7 @@ The new configuration is also saved in a file named Willow-Application-Config-<d
 #>
 
 # Willow's IP address on your local WiFi network
-$WillowIP = '192.168.1.160'
+$WillowIP = '<local-IP-address-Willow>'
 
 # The 1st angle for Line Mowing, the angle in the duplicated zone will be perpendicular, i.e. + 90 degrees
 $angle = 45
