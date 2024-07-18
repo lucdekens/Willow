@@ -1,8 +1,11 @@
 # Willow
-Code to interact with EEVE's Willow.
+Code to interact with [EEVE](https://eeve.com/)'s Willow.
 
-Notice: all this code is not validated by EEVE, nor is it garuanteed to not have any side effects.
-USE AT YOUR OWN RISK!
+>[!CAUTION]
+>All code in this repository is **not** validated by EEVE, nor is it guaranteed not to have any side effects.
+>
+>***Use at your own risk!***
 
-DZone-Perpendicular.ps1
-  Code to duplicate all Grass Zones and set perpendicular Line Mowing angles.
+## Files
+**DZone-Perpendicular.ps1**
+  The code is to duplicate all grass zones and set perpendicular line mowing angles.
