@@ -25,12 +25,22 @@ function Invoke-Willow {
         [Switch]$DontWait = $false
     )
 
-    $sWeb = @{
-        Uri                = "http://$($IP):8080/$($Command)"
-        Method             = $Method
-        ContentType        = 'application/json'
-        UseBasicParsing    = $true
-        SkipHttpErrorCheck = $true
+    if ((Get-Host).Version -lt [Version]'7.0') {
+        $sWeb = @{
+            Uri                = "http://$($IP):8080/$($Command)"
+            Method             = $Method
+            ContentType        = 'application/json'
+            UseBasicParsing    = $true
+        }
+    } else {
+        $sWeb = @{
+            Uri                = "http://$($IP):8080/$($Command)"
+            Method             = $Method
+            ContentType        = 'application/json'
+            UseBasicParsing    = $true
+            # This parameter was introduced in PowerShell 7 
+            SkipHttpErrorCheck = $true
+        }
     }
     if ($Body) {
         $sWeb.Add('Body', $Body)
@@ -95,14 +105,55 @@ $appConfig.zones.features | ForEach-Object -Process {
     # Only duplicate Grass Zones
     if ($_.id -match "^GRASSZONE_") {
         $old = $_ | ConvertTo-Json -Depth 100 | ConvertFrom-Json
-        $old.properties | Add-Member -MemberType NoteProperty -Name 'zoneProperties' -Value $zoneProp1 -Force
+        # check for existsing zoneProperties
+        if (Get-Member -InputObject $old.properties -MemberType NoteProperty  -Name 'zoneProperties') {
+            # zoneProperties already exists -> look for lineDirection
+            if (Get-Member -InputObject $old.properties.zoneProperties -MemberType NoteProperty  -Name 'lineMowActivity') {
+                if (Get-Member -InputObject $old.properties.zoneProperties.lineMowActivity -MemberType NoteProperty  -Name 'lineDirection') {
+                    Write-Host ("Found existing lineDirection: {0} for id {1}" -f $old.properties.zoneProperties.lineMowActivity.lineDirection,$old.id)
+                    # zoneProperties.lineMowActivity.lineDirection already exists -> adjust zoneProp1 & zoneProp2
+                    $zoneProp1.lineMowActivity.lineDirection = $old.properties.zoneProperties.lineMowActivity.lineDirection
+                    $zoneProp2.lineMowActivity.lineDirection = $old.properties.zoneProperties.lineMowActivity.lineDirection + 90
+                }
+            }
+            $zoneProp1 | Get-Member -MemberType NoteProperty | ForEach-Object -Process {
+                if (Get-Member -InputObject $old.properties.zoneProperties -MemberType NoteProperty  -Name $_.Name) {
+                    # zoneProperties element already exists -> replace with copy
+                    $old.properties.zoneProperties.($_.Name) = $zoneProp1.($_.Name).psobject.Copy()
+                } else {
+                    # zoneProperties element does not  exists -> add reference
+                    $old.properties.zoneProperties | Add-Member -MemberType NoteProperty -Name $_.Name -Value $zoneProp1.($_.Name) -Force
+                }
+            }
+        } else {
+            # zoneProperties does not exists -> add reference
+            $old.properties | Add-Member -MemberType NoteProperty -Name 'zoneProperties' -Value $zoneProp1 -Force
+        }
         $newAppConfig.zones.features += $old
 
         $new = $_ | ConvertTo-Json -Depth 100 | ConvertFrom-Json
         $new.Id = "GRASSZONE_$(New-Guid)"
         $new.properties.description = 'GRASSZONE created by code to duplicate a zone.'
-        $new.properties | Add-Member -MemberType NoteProperty -Name 'zoneProperties' -Value $zoneProp2 -Force
+        # check for existsing zoneProperties
+        if (Get-Member -InputObject $new.properties -MemberType NoteProperty  -Name 'zoneProperties') {
+            # zoneProperties already exists -> modify
+            $zoneProp2 | Get-Member -MemberType NoteProperty | ForEach-Object -Process {
+                if (Get-Member -InputObject $new.properties.zoneProperties -MemberType NoteProperty  -Name $_.Name) {
+                    # zoneProperties element already exists -> replace
+                    $new.properties.zoneProperties.($_.Name) = $zoneProp2.($_.Name).psobject.Copy()
+                } else {
+                    # zoneProperties element does not  exists -> add reference
+                    $new.properties.zoneProperties | Add-Member -MemberType NoteProperty -Name $_.Name -Value $zoneProp2.($_.Name) -Force
+                }
+            }
+        } else {
+            # zoneProperties does not exists -> add reference
+            $new.properties | Add-Member -MemberType NoteProperty -Name 'zoneProperties' -Value $zoneProp2 -Force
+        }
         $newAppConfig.zones.features += $new
+        # reset zoneProp1 & zoneProp2
+        $zoneProp1.lineMowActivity.lineDirection = $angle
+        $zoneProp2.lineMowActivity.lineDirection = $angle + 90
         # Copy all other zones
     } else {
         $newAppConfig.zones.features += $_
